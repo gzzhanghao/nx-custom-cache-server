@@ -63,19 +63,22 @@ async function preTasksExecution(options: PluginOptions, context: any) {
     return cache.retrieveFile(ctx.req.param('hash'));
   });
 
-  const server = serve({ ...app, port: 0 }, (info) => {
-    const host =
-      info.family === 'IPv6'
-        ? `http://[${info.address}]:${info.port}`
-        : `http://${info.address}:${info.port}`;
+  await new Promise<void>((resolve) => {
+    const server = serve({ ...app, port: 0 }, (info) => {
+      const host =
+        info.family === 'IPv6'
+          ? `http://[${info.address}]:${info.port}`
+          : `http://${info.address}:${info.port}`;
 
-    process.env.NX_SELF_HOSTED_REMOTE_CACHE_SERVER = host;
-    process.env.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN = accessToken;
+      process.env.NX_SELF_HOSTED_REMOTE_CACHE_SERVER = host;
+      process.env.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN = accessToken;
 
-    console.log('[NX Custom Cache Server] cache server listening', host);
+      console.log('[NX Custom Cache Server] cache server listening', host);
+      resolve();
+    });
+
+    serverMap.set(options, server);
   });
-
-  serverMap.set(options, server);
 }
 
 async function postTasksExecution(options: PluginOptions) {
