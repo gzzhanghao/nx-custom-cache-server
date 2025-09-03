@@ -25,7 +25,11 @@ async function preTasksExecution(options: PluginOptions, context: any) {
     path.join(context.workspaceRoot, 'nx.json')
   );
 
-  const cache: CacheHandler | undefined = cacheHandlerModule.default.default();
+  const cache: CacheHandler | undefined = cacheHandlerModule.default.default(
+    options,
+    context
+  );
+
   if (!cache) {
     console.log('[NX Custom Cache Server] missing cache handler');
     return;
