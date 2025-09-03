@@ -20,19 +20,18 @@ export interface CacheHandler {
 const serverMap = new WeakMap<object, ServerType>();
 
 async function preTasksExecution(options: PluginOptions, context: any) {
-  const app = new Hono();
+  const cacheHandlerModule = await tsImport(
+    options.customCacheHandler,
+    path.join(context.workspaceRoot, 'nx.json')
+  );
 
-  let cachePromise: Promise<CacheHandler> | undefined;
-
-  async function getCache() {
-    if (!cachePromise) {
-      cachePromise = tsImport(
-        options.customCacheHandler,
-        path.join(context.workspaceRoot, 'nx.json')
-      ).then((mod) => mod.default.default());
-    }
-    return cachePromise;
+  const cache: CacheHandler | undefined = cacheHandlerModule.default.default();
+  if (!cache) {
+    console.log('[NX Custom Cache Server] missing cache handler');
+    return;
   }
+
+  const app = new Hono();
 
   app.use(
     logger((...args) => {
@@ -56,13 +55,11 @@ async function preTasksExecution(options: PluginOptions, context: any) {
   );
 
   app.put('/v1/cache/:hash', async (ctx) => {
-    const cache = await getCache();
     await cache.storeFile(ctx.req.param('hash'), ctx.req.raw);
     return new Response(undefined, { status: 200 });
   });
 
   app.get('/v1/cache/:hash', async (ctx) => {
-    const cache = await getCache();
     return cache.retrieveFile(ctx.req.param('hash'));
   });
 
@@ -81,7 +78,7 @@ async function preTasksExecution(options: PluginOptions, context: any) {
   serverMap.set(options, server);
 }
 
-async function postTasksExecution(options: PluginOptions, context: any) {
+async function postTasksExecution(options: PluginOptions) {
   const server = serverMap.get(options);
   if (!server) {
     console.warn('[NX Custom Cache Server] missing cache server');
