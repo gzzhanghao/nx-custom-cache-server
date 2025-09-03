@@ -88,6 +88,7 @@ async function postTasksExecution(options: PluginOptions, context: any) {
     return;
   }
   server.close();
+  serverMap.delete(options);
   console.log('[NX Custom Cache Server] cache server closed');
 }
 
