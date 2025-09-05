@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.19.1",
+    "@nx/devkit": "21.4.1",
     "hono": "^4.9.6",
     "tsx": "^4.20.5"
   },

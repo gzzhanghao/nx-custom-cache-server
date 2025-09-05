@@ -1,10 +1,11 @@
 import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 
+import { logger } from '@nx/devkit';
 import { serve, ServerType } from '@hono/node-server';
 
 import { Hono } from 'hono';
-import { logger } from 'hono/logger';
+import { logger as honoLogger } from 'hono/logger';
 import { createMiddleware } from 'hono/factory';
 import { tsImport } from 'tsx/esm/api';
 
@@ -31,15 +32,15 @@ async function preTasksExecution(options: PluginOptions, context: any) {
   );
 
   if (!cache) {
-    console.log('[NX Custom Cache Server] missing cache handler');
+    logger.log('[NX Custom Cache Server] missing cache handler');
     return;
   }
 
   const app = new Hono();
 
   app.use(
-    logger((...args) => {
-      console.log('[NX Custom Cache Server]', ...args);
+    honoLogger((...args) => {
+      logger.log('[NX Custom Cache Server]', ...args);
     })
   );
 
@@ -77,7 +78,7 @@ async function preTasksExecution(options: PluginOptions, context: any) {
       process.env.NX_SELF_HOSTED_REMOTE_CACHE_SERVER = host;
       process.env.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN = accessToken;
 
-      console.log('[NX Custom Cache Server] cache server listening', host);
+      logger.log('[NX Custom Cache Server] cache server listening', host);
       resolve();
     });
 
@@ -88,12 +89,12 @@ async function preTasksExecution(options: PluginOptions, context: any) {
 async function postTasksExecution(options: PluginOptions) {
   const server = serverMap.get(options);
   if (!server) {
-    console.warn('[NX Custom Cache Server] missing cache server');
+    logger.log('[NX Custom Cache Server] missing cache server');
     return;
   }
   server.close();
   serverMap.delete(options);
-  console.log('[NX Custom Cache Server] cache server closed');
+  logger.log('[NX Custom Cache Server] cache server closed');
 }
 
 export default {
