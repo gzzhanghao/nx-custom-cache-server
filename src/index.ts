@@ -1,13 +1,11 @@
 import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 
-import { logger } from '@nx/devkit';
 import { serve, ServerType } from '@hono/node-server';
 
 import { Hono } from 'hono';
-import { logger as honoLogger } from 'hono/logger';
-import { createMiddleware } from 'hono/factory';
 import { tsImport } from 'tsx/esm/api';
+import { HTTPException } from 'hono/http-exception';
 
 export interface PluginOptions {
   customCacheHandler: string;
@@ -32,32 +30,23 @@ async function preTasksExecution(options: PluginOptions, context: any) {
   );
 
   if (!cache) {
-    logger.log('[NX Custom Cache Server] missing cache handler');
     return;
   }
 
   const app = new Hono();
 
-  app.use(
-    honoLogger((...args) => {
-      logger.log('[NX Custom Cache Server]', ...args);
-    })
-  );
-
   const accessToken = randomBytes(32).toString('base64url');
 
-  app.use(
-    createMiddleware(async (ctx, next) => {
-      const auth = ctx.req.header('Authorization');
-      if (!auth || !auth.startsWith('Bearer ')) {
-        return new Response('Unauthorized', { status: 401 });
-      }
-      if (auth !== `Bearer ${accessToken}`) {
-        return new Response('Forbidden', { status: 403 });
-      }
-      await next();
-    })
-  );
+  app.use(async (ctx, next) => {
+    const auth = ctx.req.header('Authorization');
+    if (!auth || !auth.startsWith('Bearer ')) {
+      throw new HTTPException(401, { message: 'Unauthorized' });
+    }
+    if (auth !== `Bearer ${accessToken}`) {
+      throw new HTTPException(403, { message: 'Forbidden' });
+    }
+    await next();
+  });
 
   app.put('/v1/cache/:hash', async (ctx) => {
     await cache.storeFile(ctx.req.param('hash'), ctx.req.raw);
@@ -78,7 +67,6 @@ async function preTasksExecution(options: PluginOptions, context: any) {
       process.env.NX_SELF_HOSTED_REMOTE_CACHE_SERVER = host;
       process.env.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN = accessToken;
 
-      logger.log('[NX Custom Cache Server] cache server listening', host);
       resolve();
     });
 
@@ -89,12 +77,10 @@ async function preTasksExecution(options: PluginOptions, context: any) {
 async function postTasksExecution(options: PluginOptions) {
   const server = serverMap.get(options);
   if (!server) {
-    logger.log('[NX Custom Cache Server] missing cache server');
     return;
   }
   server.close();
   serverMap.delete(options);
-  logger.log('[NX Custom Cache Server] cache server closed');
 }
 
 export default {
