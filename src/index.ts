@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 
-import { serve, ServerType } from '@hono/node-server';
+import { serve } from '@hono/node-server';
 
 import { Hono } from 'hono';
 import { tsImport } from 'tsx/esm/api';
@@ -14,9 +14,14 @@ export interface PluginOptions {
 export interface CacheHandler {
   storeFile(hash: string, req: Request): Promise<void>;
   retrieveFile(hash: string): Promise<Response>;
+  close?: () => void;
 }
 
-const serverMap = new WeakMap<object, ServerType>();
+interface ServerHandle {
+  close(): void;
+}
+
+const serverMap = new WeakMap<object, ServerHandle>();
 
 async function preTasksExecution(options: PluginOptions, context: any) {
   const cacheHandlerModule = await tsImport(
@@ -70,7 +75,12 @@ async function preTasksExecution(options: PluginOptions, context: any) {
       resolve();
     });
 
-    serverMap.set(options, server);
+    serverMap.set(options, {
+      close() {
+        server.close();
+        cache.close?.();
+      },
+    });
   });
 }
 
